@@ -8,9 +8,10 @@ CREATE TABLE alumno (
 );
 
 CREATE TABLE cupon (
-	idCupon VARCHAR(12) PRIMARY KEY,
+	mes INT,
     dniAlumno VARCHAR(8),
-	idPago INT,
+	pagoRealizado BOOL,
+    PRIMARY KEY (mes, dniAlumno),
     FOREIGN KEY (dniAlumno) REFERENCES alumno(dni)
     ON DELETE CASCADE
 );
