@@ -9,7 +9,7 @@ public class Menues{
     public Menues(){
         scanner = new Scanner(System.in);
         sistemaDeAlumnos = new SistemaDeAlumnos();
-        sistemaDePagosYDeudas = new SistemaDePagosYDeudas(10);
+        sistemaDePagosYDeudas = new SistemaDePagosYDeudas();
     }
 
     public void smoke(){
@@ -22,8 +22,8 @@ public class Menues{
         sistemaDeAlumnos.registrarAlumno("33333333", "CCCCC CCCCC", 3);
         System.out.println("----------------------------");
         System.out.println("Generar cupones.");
-        sistemaDePagosYDeudas.generarCupones(sistemaDeAlumnos, 1);
-        sistemaDePagosYDeudas.generarCupones(sistemaDeAlumnos, 2);
+        sistemaDePagosYDeudas.generarCupones(1);
+        sistemaDePagosYDeudas.generarCupones(2);
         System.out.println("----------------------");
         System.out.println("Deudas pre pago");
         sistemaDePagosYDeudas.consultarDeudasAlumno("11111111");
@@ -47,6 +47,8 @@ public class Menues{
         System.out.println("Sin deudas");
         sistemaDePagosYDeudas.consultarTotalDeudas();
         sistemaDeAlumnos.bajaAlumno("11111111");
+        sistemaDeAlumnos.bajaAlumno("22222222");
+        sistemaDeAlumnos.bajaAlumno("33333333");
     }
 
     public void menuPrincipal(){
@@ -129,8 +131,6 @@ public class Menues{
                         System.out.println("El nombre del alumno debe contener solo letras y espacios.");
                         System.out.println("El DNI del alumno solo debe contener 8 dígitos numéricos.");
                         System.out.println("El curso del alumno debe ser un valor numérico. ");
-                    } catch (AlumnoNoEncontradoException e){
-                        System.out.println("El alumno ingresado ya se encuentra cargado en el sistema.");
                     }
                     break;
                 case 2:
@@ -182,7 +182,7 @@ public class Menues{
                     System.out.println("Has seleccionado la Opción 1: Generar Cupones");
                     System.out.println("Ingrese el mes de los cupones que desea generar: ");
                     mes = scanner.nextInt();
-                    sistemaDePagosYDeudas.generarCupones(sistemaDeAlumnos, mes);
+                    sistemaDePagosYDeudas.generarCupones(mes);
                     break;
                 case 2:
                     scanner.nextLine();
@@ -193,8 +193,9 @@ public class Menues{
                     mes = scanner.nextInt();
                     try {
                         sistemaDePagosYDeudas.cargarPago(dni, mes);
-                    } catch ( DatosIncorrectosException e ){
-                        System.out.println("Los datos ingresados no coinciden con un cupon existente.");
+                        System.out.println("El pago fue cargado correctamente");
+                    } catch (DatosIncorrectosException e){
+                        System.out.println("No se encontró ningíun cupón con los datos ingresados.");
                     } catch ( PagoYaRealizadoException e) {
                         System.out.println("Este pago ya fue realizado.");
                     }

@@ -1,87 +1,138 @@
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class SistemaDePagosYDeudas {
 
-    private ArrayList<Cupon> cupones;
-
-    public SistemaDePagosYDeudas(int capacidad){
-        cupones = new ArrayList<Cupon>();
-    }
-
-    // Getter
-    public ArrayList<Cupon> getCupones() {
-        return cupones;
-    }
-
     // Funciones de la clase
+    public void generarCupones(int mes){
 
-    public void generarCupones(SistemaDeAlumnos alumnos, int mes){
-        // Método que recibe un int y genera un listado de nuevos cupones para todos los alumnos.
-        // Known issue: Con un uso inapropiado, podrían generarse cupones duplicados.
-        ArrayList<Alumno> listado = alumnos.getAlumnos();
+        String selectSQL = "SELECT * FROM alumno";
+        String insertSQL = "INSERT INTO cupon (dniAlumno, mes, pagoRealizado) VALUES (?, ?, ?)";
 
-        for (Alumno alumno : listado){
-            cupones.add(new Cupon(mes, alumno.getDni()));
+        try (var connection = MySQLConnection.connect();
+             var selectStmt = connection.prepareStatement(selectSQL, Statement.RETURN_GENERATED_KEYS);
+             var insertStmt = connection.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)
+        ) {
+
+            // Ejecuto la query para obtener todos los alumnos y los guardo en un set de datos.
+            ResultSet alumnos = selectStmt.executeQuery();
+
+            // Para cada alumno en el set, generamos un cupón con su DNI y el mes indicado.
+            // Luego lo insertamos en la tabla cupon.
+            while (alumnos.next()) {
+                String dni = alumnos.getString("dni");
+
+                insertStmt.setString(1, dni);
+                insertStmt.setInt(2, mes);
+                insertStmt.setBoolean(3, false);
+                insertStmt.executeUpdate();
+            }
+
+            // Si se llegó a este punto sin excepciones los cupones fueron cargados correctamente.
+            System.out.println("Cupones para el mes " + mes + " generados exitosamente.");
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
         }
-        System.out.println("Cupones para el mes " + mes + " generados exitosamente.");
     }
 
     public void cargarPago(String dni, int mes){
         // Recibe los datos de un alumno y un mes (Cupon) para efectuar un pago.
-        // Verifica que el cupon exista, si no, arroja DatosIncorrectosException.
-        // Luego verifica que el pago no haya sido efectuado previamente, en ese caso
-        // arroja PagoYaRealizadoException.
+        // Luego verifica que el pago no haya sido efectuado previamente, invocando
+        // el método verificar estado del pago.
+        // En caso de no haber excepción se continua a cargar el pago.
 
-        Iterator<Cupon> iterator = cupones.iterator();
-        boolean pagoRealizado = false;
+        var sql = "UPDATE cupon SET pagoRealizado = ? WHERE (dniAlumno = ? AND mes = ?)";
 
-        while (iterator.hasNext() && !pagoRealizado){
-            Cupon cupon = iterator.next();
-            if (cupon.getDni().equals(dni) && cupon.getMes() == mes){
-                if (cupon.pagar()){
-                    System.out.println("Pago realizado " + mes);
-                    pagoRealizado = true;
-                } else {
-                    throw new PagoYaRealizadoException(dni, mes);
-                }
+        // Valida que el pago no se encuentra ya cargado
+        verificarEstadoDelPago(dni, mes);
+
+        // Si el pago no se encuentra previamente cargado, carga el pago.
+        try (var connection = MySQLConnection.connect();
+             var stmt = connection.prepareStatement(sql)) {
+            // prepare data for update
+            stmt.setBoolean(1, true);
+            stmt.setString(2, dni);
+            stmt.setInt(3, mes);
+
+            // execute the update
+            int rowsAffected = stmt.executeUpdate();
+
+            if (rowsAffected == 0) {
+                throw new PagoYaRealizadoException(dni, mes);
             }
-        }
-        if (!pagoRealizado) {
-            throw new DatosIncorrectosException();
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
         }
     }
 
+    public static void verificarEstadoDelPago(String dniAlumno, int mes) {
+        var sql = "SELECT pagoRealizado FROM cupon WHERE (dniAlumno = ? AND mes = ?)";
+
+        try (var connection = MySQLConnection.connect();
+             var stmt = connection.prepareStatement(sql)) {
+
+            stmt.setString(1, dniAlumno);
+            stmt.setInt(2, mes);
+
+            ResultSet pagos = stmt.executeQuery();
+            if (pagos.next()) {
+                boolean pagoRealizado = pagos.getBoolean("pagoRealizado");
+
+                if (pagoRealizado) {
+                    throw new PagoYaRealizadoException(dniAlumno, mes);
+                }
+            } else {
+                throw new DatosIncorrectosException();
+            }
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
+        }
+    }
 
     public void consultarDeudasAlumno(String dni) {
         // Función que muestra por pantalla todos los cupones impagos de un alumno específico.
         // En caso que el alumno no posea deudas lo indica.
-        boolean sinDeuda = true;
 
-        System.out.println("El alumno con DNI: " + dni);
-        for(Cupon cupon: cupones){
-            if(cupon.getDni().equals(dni) && !cupon.getPago()){
-                sinDeuda = false;
-                System.out.println("Adeuda el mes " + cupon.getMes());
+        var sql = "SELECT mes FROM cupon WHERE (dniAlumno = ? AND pagoRealizado = false)";
+
+        try (var connection = MySQLConnection.connect();
+             var stmt = connection.prepareStatement(sql)) {
+
+            stmt.setString(1, dni);
+
+            ResultSet deudas = stmt.executeQuery();
+            if (deudas.next()) {
+                System.out.println("El alumno con DNI: " + dni + " Adeuda los siguientes meses: ");
+                System.out.println(deudas.getInt("mes"));
+                while (deudas.next()) {
+                    System.out.println(deudas.getInt("mes"));
+                }
+            } else {
+                System.out.println("El alumno con DNI: " + dni + " No posee deudas al día de la fecha.");
             }
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
         }
-
-        if (sinDeuda) System.out.println("No posee deudas al día de la fecha.");
     }
 
     public void consultarTotalDeudas(){
         // Función que muestra por pantalla todos los cupones impagos.
-        // En caso de que no existan deudas lo indica por pantalla.
 
-        boolean sinDeudas = true;
-        for(Cupon cupon: cupones){
-            if(!cupon.getPago()){
-                sinDeudas = false;
-                System.out.println("El alumno " + cupon.getDni() + " adeuda el mes " + cupon.getMes());
+        var sql = "SELECT dniAlumno, mes FROM cupon WHERE pagoRealizado = false ORDER BY dniAlumno";
+
+        try (var connection = MySQLConnection.connect();
+             var stmt = connection.prepareStatement(sql)) {
+
+            ResultSet deudas = stmt.executeQuery();
+
+            while (deudas.next()) {
+                System.out.println("El alumno con DNI: " + deudas.getString("dniAlumno") + " Adeuda el mes: " + deudas.getInt("mes"));
             }
-        }
-        if (sinDeudas) {
-            System.out.println("Al día de la fecha, ningun alumno adeuda sus pagos.");
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
         }
     }
+
+
 }
