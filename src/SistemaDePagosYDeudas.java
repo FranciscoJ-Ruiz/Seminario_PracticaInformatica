@@ -36,11 +36,11 @@ public class SistemaDePagosYDeudas {
         }
     }
 
+    // Recibe los datos de un alumno y un mes (Cupon) para efectuar un pago.
+    // Luego verifica que el pago no haya sido efectuado previamente, invocando
+    // el método verificar estado del pago.
+    // En caso de no haber excepción se continua a cargar el pago.
     public void cargarPago(String dni, int mes){
-        // Recibe los datos de un alumno y un mes (Cupon) para efectuar un pago.
-        // Luego verifica que el pago no haya sido efectuado previamente, invocando
-        // el método verificar estado del pago.
-        // En caso de no haber excepción se continua a cargar el pago.
 
         var sql = "UPDATE cupon SET pagoRealizado = ? WHERE (dniAlumno = ? AND mes = ?)";
 
